@@ -5,6 +5,7 @@ import os
 import numpy as np
 from numpy.linalg import inv
 from matplotlib import pyplot as plt
+queue
 
 pygame.init()
 WIDTH = 600
@@ -23,7 +24,7 @@ SCALE_X = WORK_WIDTH / (MAX_X - MIN_X)
 SCALE_Y = WORK_HEIGHT / (MAX_Y - MIN_Y)
 # CENTER_XY = np.array([MAX_X+MIN_X, MAX_Y+MIN_Y]) / 2
 CENTER_XY = np.array([0, 0])
-SCALE_T = 10
+SCALE_T = 1.5
 PYGAME_START_TIME = 0
 
 
@@ -37,7 +38,7 @@ def get_time():
 
 
 sc = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("FHN")
+pygame.display.set_caption("FHN_many")
 font = pygame.font.SysFont('arial', 10)
 
 FPS = 60
@@ -84,16 +85,21 @@ def draw_net():
 
 # -------------------------
 
+dot_cnt = 2000
+
 a = 0.25
 eps = 0.005
 I_app = 0.0
 v_0 = 0
 w_0 = 0
-gamma = float(input())
-x = np.array([v_0, w_0])
+gamma = 1
+# gamma = float(input())
+x = np.zeros((dot_cnt, 2))
+rads = np.ones(dot_cnt)*3
 
 
 def FHN(v, w):
+    ##
     return np.array([v * (1 - v) * (v - a) - w + I_app, eps * (v - gamma * w)])
 
 
@@ -108,25 +114,28 @@ def get_equilibrium_points():
     return res
 
 
+def respawn_dots(i, dots_gens):
+    low_b = int(i/dots_gens * dot_cnt)
+    up_b = int(min((i+1)/dots_gens * dot_cnt, dot_cnt))
+    x[low_b:up_b, 0] = np.random.uniform(MIN_X, MAX_X, up_b-low_b)
+    x[low_b:up_b, 1] = np.random.uniform(MIN_Y, MAX_Y, up_b-low_b)
+    rads[low_b:up_b] = np.ones(up_b-low_b)*(i+1)*5/dots_gens + 1
 # -------------------------
 
 
 def RK4_step(y, dt):
-    v = y[0]
-    w = y[1]
-    [k1, q1] = FHN(v, w)
+    v = y[:, 0]
+    w = y[:, 1]
+    k1, q1 = FHN(v, w)
     [k2, q2] = FHN(v + 0.5 * k1 * dt, w + 0.5 * q1 * dt)
     [k3, q3] = FHN(v + 0.5 * k2 * dt, w + 0.5 * q2 * dt)
     [k4, q4] = FHN(v + k3 * dt, w + q3 * dt)
-    return dt * np.array([k1 + 2 * k2 + 2 * k3 + k4, q1 + 2 * q2 + 2 * q3 + q4])
+    return dt * np.array([k1 + 2 * k2 + 2 * k3 + k4, q1 + 2 * q2 + 2 * q3 + q4]).T
 
 
 max_time = 40
 delta_t = 0.001
 time_measure = np.array([0])
-# time-stepping solution
-V = np.array([v_0])
-W = np.array([w_0])
 
 last_upd = 0
 time_from_last_update = 0
@@ -134,7 +143,13 @@ time_from_last_update = 0
 init_model_update_timer()
 model_time = 0
 escape = False
-VW_curve = [real_to_pygame(x)]
+# VW_curves = np.array([real_to_pygame(xx) for xx in x])
+
+dots_lifetime = 2000
+dots_generations = 10
+for i in range(dots_generations):
+    respawn_dots(i, dots_generations)
+last_respawn = [pygame.time.get_ticks() - dots_lifetime*i/dots_generations for i in range(dots_generations)]
 
 while 1:
     for event in pygame.event.get():
@@ -149,7 +164,7 @@ while 1:
                 I_app -= 0.075
             elif event.key == pygame.K_SPACE:
                 print("dV")
-                x[0] += a * 1.2
+                x[:, 0] += a * 1.2
             elif event.key == pygame.K_ESCAPE:
                 escape = True
             elif event.key == pygame.K_LEFTBRACKET:
@@ -169,9 +184,13 @@ while 1:
 
     x = x + RK4_step(x, SCALE_T * delta_t)
 
-    V = np.append(V, x[0])
-    W = np.append(W, x[1])
     time_measure = np.append(time_measure, model_time)
+
+    for i in range(dots_generations):
+        if pygame.time.get_ticks()-last_respawn[i] >= dots_lifetime:
+            last_respawn[i] = pygame.time.get_ticks()
+            respawn_dots(i, dots_generations)
+
 
     if time_from_last_update - last_upd >= 1 / 60:
         sc.fill(WHITE)
@@ -205,14 +224,19 @@ while 1:
             else:
                 pygame.draw.circle(sc, WHITE, real_to_pygame(eq_p), 5)
 
-        # draw point
-        point = real_to_pygame(x)
+        # draw points
+        for i in range(dots_generations):
+            low_b = int(i / dots_generations * dot_cnt)
+            up_b = int(min((i + 1) / dots_generations * dot_cnt, dot_cnt))
+            dot_rad = np.sin(np.pi*(pygame.time.get_ticks() - last_respawn[i]) / dots_lifetime) * rads[low_b]
+            dot_col = min(max(255-np.sin(np.pi*(pygame.time.get_ticks() - last_respawn[i]) / dots_lifetime)*255, 0), 255)
+            for j in range(low_b, up_b):
+                point = real_to_pygame(x[j])
+                pygame.draw.circle(sc, (dot_col, dot_col, dot_col), point, dot_rad)
 
-        pygame.draw.circle(sc, RED, point, 5)
-
-        # trajectory
-        VW_curve.extend([(point[0], point[1])])
-        pygame.draw.aalines(sc, BLUE, False, VW_curve[-3000:])
+        # # trajectory
+        # VW_curves.extend([(point[0], point[1])])
+        # pygame.draw.aalines(sc, BLUE, False, VW_curves[-3000:])
 
         # net
         draw_net()
@@ -222,13 +246,6 @@ while 1:
 
 max_time = time_measure[-1]
 
-# plot the result
-fig = plt.figure()
-ax = fig.add_subplot(111)
-ax.plot(time_measure, V)
-ax.plot(time_measure, W)
-ax.set(xlim=[0, max_time + 1], ylim=[min(MIN_X, MIN_Y), max(MAX_X, MAX_Y)], xlabel='time')
-plt.show()
 
 # plt.plot(time,V)
 # plt.plot(time,W)
