@@ -5,7 +5,6 @@ import os
 import numpy as np
 from numpy.linalg import inv
 from matplotlib import pyplot as plt
-queue
 
 pygame.init()
 WIDTH = 600
@@ -16,7 +15,7 @@ WORK_WIDTH = WIDTH - MARGIN_X * 2
 WORK_HEIGHT = HEIGHT - MARGIN_Y * 2
 MAX_X = 1.2
 MIN_X = -0.4
-MAX_Y = 0.5
+MAX_Y = 1.0
 MIN_Y = -0.1
 STEP_X = 0.1
 STEP_Y = 0.1
@@ -85,7 +84,7 @@ def draw_net():
 
 # -------------------------
 
-dot_cnt = 2000
+dot_cnt = 1000
 
 a = 0.25
 eps = 0.005
@@ -96,6 +95,9 @@ gamma = 1
 # gamma = float(input())
 x = np.zeros((dot_cnt, 2))
 rads = np.ones(dot_cnt)*3
+
+curves_dot_cnt = 10
+VW_curves = np.array([[real_to_pygame(xx) for i in range(curves_dot_cnt)] for xx in x])
 
 
 def FHN(v, w):
@@ -120,6 +122,7 @@ def respawn_dots(i, dots_gens):
     x[low_b:up_b, 0] = np.random.uniform(MIN_X, MAX_X, up_b-low_b)
     x[low_b:up_b, 1] = np.random.uniform(MIN_Y, MAX_Y, up_b-low_b)
     rads[low_b:up_b] = np.ones(up_b-low_b)*(i+1)*5/dots_gens + 1
+    VW_curves[low_b:up_b] = np.array([[real_to_pygame(xx) for i in range(curves_dot_cnt)] for xx in x[low_b:up_b]])
 # -------------------------
 
 
@@ -143,7 +146,6 @@ time_from_last_update = 0
 init_model_update_timer()
 model_time = 0
 escape = False
-# VW_curves = np.array([real_to_pygame(xx) for xx in x])
 
 dots_lifetime = 2000
 dots_generations = 10
@@ -164,17 +166,18 @@ while 1:
                 I_app -= 0.075
             elif event.key == pygame.K_SPACE:
                 print("dV")
-                x[:, 0] += a * 1.2
+                x[:, 0] += a * 0.7
+                event_keys = pygame.key.get_pressed()
+                if not event_keys[pygame.K_LSHIFT]:
+                    x[:, 0] += a * 0.7
             elif event.key == pygame.K_ESCAPE:
-                escape = True
+                pygame.event.post(pygame.event.Event(pygame.QUIT))
             elif event.key == pygame.K_LEFTBRACKET:
                 SCALE_T -= 0.5
                 print(f"TIME SCALE = {SCALE_T}")
             elif event.key == pygame.K_RIGHTBRACKET:
                 SCALE_T += 0.5
                 print(f"TIME SCALE = {SCALE_T}")
-    if escape:
-        break
     if get_time() < delta_t * 1000:
         continue
 
@@ -211,8 +214,8 @@ while 1:
         for eq_p in eq_points:
             f_v = np.poly1d([-gamma**3, (a+1)*gamma**2, -a*gamma, (I_app - eq_p[1])]).deriv()(eq_p[0])
             f_w = np.poly1d([-gamma**3, (a+1)*(gamma**2), -(a*gamma + 1), I_app]).deriv()(eq_p[1])
-            g_v = np.poly1d([1, -gamma*eq_p[1]]).deriv()(eq_p[0])
-            g_w = np.poly1d([-gamma, eq_p[0]]).deriv()(eq_p[1])
+            g_v = np.poly1d([eps, -eps * gamma * eq_p[1]]).deriv()(eq_p[0])
+            g_w = np.poly1d([-eps * gamma, eps * eq_p[0]]).deriv()(eq_p[1])
 
             eig_val, eig_vec = np.linalg.eig([[f_v, f_w], [g_v, g_w]])
             # print(eig_val)
@@ -234,22 +237,14 @@ while 1:
                 point = real_to_pygame(x[j])
                 pygame.draw.circle(sc, (dot_col, dot_col, dot_col), point, dot_rad)
 
-        # # trajectory
-        # VW_curves.extend([(point[0], point[1])])
-        # pygame.draw.aalines(sc, BLUE, False, VW_curves[-3000:])
+        # trajectory
+        for i in range(dot_cnt):
+            VW_curves[i][:-1] = VW_curves[i][1:]
+            VW_curves[i][-1] = real_to_pygame((x[i][0], x[i][1]))
+            pygame.draw.aalines(sc, BLUE, False, VW_curves[i])
 
         # net
         draw_net()
 
         pygame.display.update()
 
-
-max_time = time_measure[-1]
-
-
-# plt.plot(time,V)
-# plt.plot(time,W)
-# plt.grid(True)
-# plt.axis()
-# plt.legend(['voltage', 'activation variable'], loc='lower right')
-# plt.show()

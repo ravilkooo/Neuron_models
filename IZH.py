@@ -104,6 +104,9 @@ w_0 = -14
 v_thresh = 30.0
 x = np.array([v_0, w_0])
 
+curve_dot_cnt = 2000
+VW_curve = [real_to_pygame(x) for i in range(curve_dot_cnt)]
+
 
 def IZH(v, w):
     if v >= v_thresh:
@@ -152,7 +155,6 @@ time_from_last_update = 0
 init_model_update_timer()
 model_time = 0
 escape = False
-VW_curve = [real_to_pygame(x)]
 
 while 1:
     for event in pygame.event.get():
@@ -167,7 +169,10 @@ while 1:
                 I_app -= 0.4
             elif event.key == pygame.K_SPACE:
                 print("dV")
-                x[0] += (v_thresh - x[0])*1.1
+                x[0] += 40
+                event_keys = pygame.key.get_pressed()
+                if not event_keys[pygame.K_LSHIFT]:
+                    x[0] += 40
             elif event.key == pygame.K_ESCAPE:
                 escape = True
             elif event.key == pygame.K_LEFTBRACKET:
@@ -242,7 +247,7 @@ while 1:
             g_w = np.poly1d([-a[curr_type], a[curr_type]*b[curr_type]*eq_p[0]]).deriv()(eq_p[1])
 
             eig_val, eig_vec = np.linalg.eig([[f_v, f_w], [g_v, g_w]])
-            print(eig_val)
+            # print(eig_val)
             is_stable = np.real(eig_val[0]) < 0 and np.real(eig_val[1]) < 0
 
             pygame.draw.circle(sc, BLACK, real_to_pygame(eq_p), 6)
@@ -256,8 +261,10 @@ while 1:
         pygame.draw.circle(sc, RED, point, 4)
 
         # trajectory
-        VW_curve.extend([(point[0], point[1])])
-        pygame.draw.aalines(sc, BLUE, False, VW_curve[-3000:])
+        VW_curve.pop(0)
+        VW_curve.append([point[0], point[1]])
+        # print(len(VW_curve))
+        pygame.draw.aalines(sc, BLUE, False, VW_curve[-curve_dot_cnt:])
 
         # net
         draw_net()
