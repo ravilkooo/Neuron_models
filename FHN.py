@@ -190,15 +190,13 @@ while 1:
                 else:  # if event_keys[pygame.K_LSHIFT]:
                     x[0] += a * 1.3
             elif event.key == pygame.K_ESCAPE:
-                escape = True
+                pygame.event.post(pygame.event.Event(pygame.QUIT))
             elif event.key == pygame.K_LEFTBRACKET:
                 SCALE_T -= 0.5
                 print(f"TIME SCALE = {SCALE_T}")
             elif event.key == pygame.K_RIGHTBRACKET:
                 SCALE_T += 0.5
                 print(f"TIME SCALE = {SCALE_T}")
-    if escape:
-        break
     if get_time() < delta_t * 1000:
         continue
 

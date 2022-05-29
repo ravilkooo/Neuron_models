@@ -13,17 +13,17 @@ MARGIN_X = 20
 MARGIN_Y = 20
 WORK_WIDTH = WIDTH - MARGIN_X * 2
 WORK_HEIGHT = HEIGHT - MARGIN_Y * 2
-MAX_X = 30
+MAX_X = 20
 MIN_X = -2
-MAX_Y = -20
-MIN_Y = 120
+MAX_Y = 120
+MIN_Y = -20
 STEP_X = 2
 STEP_Y = 10
 SCALE_X = WORK_WIDTH / (MAX_X - MIN_X)
 SCALE_Y = WORK_HEIGHT / (MAX_Y - MIN_Y)
 # CENTER_XY = np.array([MAX_X+MIN_X, MAX_Y+MIN_Y]) / 2
 CENTER_XY = np.array([0, 0])
-SCALE_T = 1
+SCALE_T = 4
 PYGAME_START_TIME = 0
 
 
@@ -85,19 +85,19 @@ def draw_net():
 # -------------------------
 
 v_0 = 0
-n_0 = 0.3
-m_0 = 0.1
-h_0 = 0.6
+n_0 = 0.318
+m_0 = 0.053
+h_0 = 0.59
 x = np.array([v_0, n_0, m_0, h_0])
 
-VT_curve = [(0, x[0])]
+VT_curve = [real_to_pygame([0, x[0]])]
 
 
 def get_I_app(t):
     if 2 <= t <= 3:
-        return 5
+        return 2.25
     if 10 <= t <= 11:
-        return 30
+        return 2.3
     return 0
 
 
@@ -128,8 +128,8 @@ def b_h(v):
 C = 1
 
 E_K = -12
-E_Na = 120
-E_L = 10.6
+E_Na = 115
+E_L = 10.613
 
 g_K = 36
 g_Na = 120
@@ -160,7 +160,7 @@ def RK4_step(y, dt, t):
                           w1 + 2 * w2 + 2 * w3 + w4, z1 + 2 * z2 + 2 * z3 + z4])
 
 
-max_time = 30
+max_time = 20
 delta_t = 0.001
 time_measure = np.array([0])
 # time-stepping solution
@@ -170,7 +170,6 @@ M = np.array([m_0])
 H = np.array([h_0])
 I_out = np.array([get_I_app(0)])
 
-
 last_upd = 0
 time_from_last_update = 0
 
@@ -178,6 +177,9 @@ init_model_update_timer()
 model_time = 0
 escape = False
 measure_cnt = 1
+
+prespike_moment = 0
+afterspike_moment = 0
 
 while 1:
     for event in pygame.event.get():
@@ -187,13 +189,14 @@ while 1:
             event_keys = pygame.key.get_pressed()
             if event.key == pygame.K_ESCAPE:
                 escape = True
+                # pygame.event.post(pygame.event.Event(pygame.QUIT))
             elif event.key == pygame.K_LEFTBRACKET:
                 SCALE_T -= 0.5
                 print(f"TIME SCALE = {SCALE_T}")
             elif event.key == pygame.K_RIGHTBRACKET:
                 SCALE_T += 0.5
                 print(f"TIME SCALE = {SCALE_T}")
-    if escape:
+    if escape or model_time >= max_time:
         break
     if get_time() < 1000*delta_t:
         continue
@@ -211,15 +214,22 @@ while 1:
     I_out = np.append(I_out, get_I_app(model_time))
     time_measure = np.append(time_measure, model_time)
     measure_cnt += 1
-
+    if prespike_moment == 0 and model_time >= 9.9:
+        prespike_moment = measure_cnt
+    if afterspike_moment == 0 and model_time >= 15.:
+        afterspike_moment = measure_cnt
     if model_time % 1 < 2*delta_t:
         print(model_time)
         print(x)
         print(f'I={get_I_app(model_time)}')
     if time_from_last_update - last_upd >= 1 / 60:
         sc.fill(WHITE)
-
         last_upd = time_from_last_update
+
+        # E_k,na,l
+        pygame.draw.line(sc, BLACK, real_to_pygame([0, E_K]), real_to_pygame([max_time, E_K]), 3)
+        pygame.draw.line(sc, BLACK, real_to_pygame([0, E_Na]), real_to_pygame([max_time, E_Na]), 3)
+        pygame.draw.line(sc, BLACK, real_to_pygame([0, E_L]), real_to_pygame([max_time, E_L]), 3)
 
         # draw point
         point = real_to_pygame((model_time, x[0]))
@@ -235,19 +245,121 @@ while 1:
 
         pygame.display.update()
 
-# max_time = time_measure[-1]
+max_time = time_measure[-1]
 
 # plot the result
-# fig = plt.figure()
-# ax = fig.add_subplot(111)
-# ax.plot(time_measure, V)
-# ax.plot(time_measure, W)
-# ax.set(xlim=[0, max_time + 1], ylim=[min(MIN_X, MIN_Y), max(MAX_X, MAX_Y)], xlabel='time')
-# plt.show()
 
-# plt.plot(time,V)
-# plt.plot(time,W)
-# plt.grid(True)
-# plt.axis()
-# plt.legend(['voltage', 'activation variable'], loc='lower right')
-# plt.show()
+plt.plot(time_measure, V)
+plt.plot(time_measure, np.ones_like(time_measure)*E_K, '--', label='E_K')
+plt.plot(time_measure, np.ones_like(time_measure)*E_Na, ':', label='E_Na')
+plt.plot(time_measure, np.ones_like(time_measure)*E_L, '-.', label='E_L')
+plt.xlabel('Time, ms')
+plt.ylabel('Voltage, mV', labelpad=0)
+plt.legend()
+plt.grid()
+plt.show()
+
+
+plt.plot(time_measure, N, '--', label='n(t)')
+plt.plot(time_measure, M, label='m(t)')
+plt.plot(time_measure, H, '-.', label='h(t)')
+plt.xlabel('Time, ms')
+plt.ylabel('Activation variables', labelpad=0)
+plt.legend()
+plt.grid()
+plt.show()
+
+
+plt.plot(time_measure, (N**4)*g_K, '--', label='g_K')
+plt.plot(time_measure, (M**3)*H*g_Na, label='g_Na')
+plt.xlabel('Time, ms')
+plt.ylabel('Conductance, mS/cm2', labelpad=0)
+plt.legend()
+plt.grid()
+plt.show()
+
+
+plt.plot(time_measure, (N**4)*g_K*(V-E_K), '--', label='I_K')
+plt.plot(time_measure, (M**3)*H*g_Na*(V-E_Na), label='I_Na')
+# plt.plot(time_measure, (g_L*(V-E_L)), ':', label='I_L')
+plt.plot(time_measure, (N**4)*g_K*(V-E_K) + (M**3)*H*g_Na*(V-E_Na) + g_L*(V-E_L), label='I_K + I_Na + I_L')
+plt.xlabel('Time, ms')
+plt.ylabel('Current, mA', labelpad=0)
+plt.legend()
+plt.grid()
+plt.show()
+
+
+plt.plot(time_measure, [get_I_app(i) for i in time_measure])
+plt.xlabel('Time, ms')
+plt.ylabel('I_out, mA', labelpad=0)
+plt.grid()
+plt.show()
+
+
+#
+# repeat plots for [prespike_moment:]
+#
+
+plt.plot(time_measure[prespike_moment:afterspike_moment],
+         V[prespike_moment:afterspike_moment])
+plt.plot(time_measure[prespike_moment:afterspike_moment],
+         np.ones_like(time_measure[prespike_moment:afterspike_moment])*E_K, '--', label='E_K')
+plt.plot(time_measure[prespike_moment:afterspike_moment],
+         np.ones_like(time_measure[prespike_moment:afterspike_moment])*E_Na, ':', label='E_Na')
+plt.plot(time_measure[prespike_moment:afterspike_moment],
+         np.ones_like(time_measure[prespike_moment:afterspike_moment])*E_L, '-.', label='E_L')
+plt.xlabel('Time, ms')
+plt.ylabel('Voltage, mV', labelpad=0)
+plt.grid()
+plt.show()
+
+
+plt.plot(time_measure[prespike_moment:afterspike_moment],
+         N[prespike_moment:afterspike_moment], '--', label='n(t)')
+plt.plot(time_measure[prespike_moment:afterspike_moment],
+         M[prespike_moment:afterspike_moment], label='m(t)')
+plt.plot(time_measure[prespike_moment:afterspike_moment],
+         H[prespike_moment:afterspike_moment], '-.', label='h(t)')
+plt.xlabel('Time, ms')
+plt.ylabel('Activation variables', labelpad=0)
+plt.legend()
+plt.grid()
+plt.show()
+
+
+plt.plot(time_measure[prespike_moment:afterspike_moment],
+         ((N**4)*g_K)[prespike_moment:afterspike_moment], '--', label='g_K')
+plt.plot(time_measure[prespike_moment:afterspike_moment],
+         ((M**3)*H*g_Na)[prespike_moment:afterspike_moment], label='g_Na')
+plt.xlabel('Time, ms')
+plt.ylabel('Conductance, mS/cm2', labelpad=0)
+plt.legend()
+plt.grid()
+plt.show()
+
+
+plt.plot(time_measure[prespike_moment:afterspike_moment],
+         ((N**4)*g_K*(V-E_K))[prespike_moment:afterspike_moment], '--', label='I_K')
+plt.plot(time_measure[prespike_moment:afterspike_moment],
+         ((M**3)*H*g_Na*(V-E_Na))[prespike_moment:afterspike_moment], label='I_Na')
+# plt.plot(time_measure[prespike_moment:], (g_L*(V-E_L))[prespike_moment:], ':', label='I_L')
+plt.plot(time_measure[prespike_moment:afterspike_moment],
+         ((N**4)*g_K*(V-E_K) + (M**3)*H*g_Na*(V-E_Na) + g_L*(V-E_L))[prespike_moment:afterspike_moment],
+         label='I_K + I_Na + I_L')
+plt.xlabel('Time, ms')
+plt.ylabel('Current, mA', labelpad=0)
+plt.legend()
+plt.grid()
+plt.show()
+
+
+plt.plot(time_measure[prespike_moment:afterspike_moment],
+         [get_I_app(i) for i in time_measure[prespike_moment:afterspike_moment]])
+plt.xlabel('Time, ms')
+plt.ylabel('I_out, mA', labelpad=0)
+plt.grid()
+plt.show()
+
+
+exit()

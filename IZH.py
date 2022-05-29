@@ -174,7 +174,7 @@ while 1:
                 if not event_keys[pygame.K_LSHIFT]:
                     x[0] += 40
             elif event.key == pygame.K_ESCAPE:
-                escape = True
+                pygame.event.post(pygame.event.Event(pygame.QUIT))
             elif event.key == pygame.K_LEFTBRACKET:
                 SCALE_T -= 2
                 print(f"TIME SCALE = {SCALE_T}")
@@ -208,9 +208,6 @@ while 1:
                 change_model_type(6)
                 print("Resonator neuron model.")
 
-
-    if escape:
-        break
     if model_update_timer() < delta_t * 1000:
         continue
 
