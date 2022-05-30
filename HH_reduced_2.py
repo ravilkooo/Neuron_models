@@ -7,23 +7,23 @@ from numpy.linalg import inv
 from matplotlib import pyplot as plt
 
 pygame.init()
-WIDTH = 600
+WIDTH = 1000
 HEIGHT = 600
 MARGIN_X = 20
 MARGIN_Y = 20
 WORK_WIDTH = WIDTH - MARGIN_X * 2
 WORK_HEIGHT = HEIGHT - MARGIN_Y * 2
-MAX_X = 1.2
-MIN_X = -0.4
-MAX_Y = 1.0
-MIN_Y = -0.1
-STEP_X = 0.1
+MAX_X = 120
+MIN_X = -20
+MAX_Y = 1
+MIN_Y = 0
+STEP_X = 10
 STEP_Y = 0.1
 SCALE_X = WORK_WIDTH / (MAX_X - MIN_X)
 SCALE_Y = WORK_HEIGHT / (MAX_Y - MIN_Y)
 # CENTER_XY = np.array([MAX_X+MIN_X, MAX_Y+MIN_Y]) / 2
 CENTER_XY = np.array([0, 0])
-SCALE_T = 5
+SCALE_T = 0.5
 PYGAME_START_TIME = 0
 
 
@@ -84,21 +84,16 @@ def draw_net():
 
 # -------------------------
 
-a = 0.25
-# eps = 0.005
-eps = 0.05
-I_const = 0.0
 v_0 = 0
-w_0 = 0
-gamma = 1
-# gamma = float(input())
-x = np.array([v_0, w_0])
+n_0 = 0.318
+x = np.array([v_0, n_0])
 
 curve_dot_cnt = 2000
-VW_curve = [real_to_pygame(x) for i in range(curve_dot_cnt)]
+VN_curve = [real_to_pygame(x) for i in range(curve_dot_cnt)]
 
-I_impulse_flag = True
-I_per = 5
+I_const = 0.0
+I_impulse_flag = False
+I_per = 23
 I_last_imp = 0.0
 I_incr = True
 I_impulse_val = 0.15
@@ -116,19 +111,60 @@ def get_I_app(t):
         return I_const
 
 
-def FHN(v, w, t):
-    return np.array([v * (1 - v) * (v - a) - w + get_I_app(t), eps * (v - gamma * w)])
+def a_n(v):
+    return 0.01 * (10 - v) / (np.exp((10 - v) / 10) - 1)
 
 
-def get_equilibrium_points(t):
-    poly = [-gamma**3, (a+1)*(gamma**2), -(a*gamma + 1), get_I_app(t)]
-    eq_points_w = np.roots(poly)
-    res = []
-    for eq_w in eq_points_w:
-        if np.isreal(eq_w) and MAX_X >= eq_w >= MIN_X:
-            eq_point = (eq_w*gamma, eq_w)
-            res.extend([eq_point])
-    return res
+def b_n(v):
+    return 0.125 * np.exp(-v / 80)
+
+
+def a_m(v):
+    return 0.1 * (25 - v) / (np.exp((25 - v) / 10) - 1)
+
+
+def b_m(v):
+    return 4 * np.exp(-v / 18)
+
+
+def n_inf(v):
+    return a_n(v)/(a_n(v) + b_n(v))
+
+
+def m_inf(v):
+    return a_m(v)/(a_m(v) + b_m(v))
+
+
+def tau_n(v):
+    return 1/(a_n(v) + b_n(v))
+
+
+C = 1
+
+E_K = -12
+E_Na = 115
+E_L = 10.613
+
+g_K = 36
+g_Na = 120
+g_L = 0.3
+
+
+def HH_reduced(v, n, t):
+    return np.array([(get_I_app(t) - g_K * (n ** 4) * (v - E_K)
+                     - g_Na * (m_inf(v) ** 3) * (0.89 - 1.1*n) * (v - E_Na) - g_L * (v - E_L))/C,
+                     a_n(v)*(1-n)-b_n(v)*n])
+
+
+# def get_equilibrium_points(t):
+#     poly = [-g_K*()]
+#     eq_points_w = np.roots(poly)
+#     res = []
+#     for eq_w in eq_points_w:
+#         if np.isreal(eq_w) and MAX_X >= eq_w >= MIN_X:
+#             eq_point = (eq_w*gamma, eq_w)
+#             res.extend([eq_point])
+#     return res
 
 
 # -------------------------
@@ -136,11 +172,11 @@ def get_equilibrium_points(t):
 
 def RK4_step(y, dt, t):
     v = y[0]
-    w = y[1]
-    [k1, q1] = FHN(v, w, t)
-    [k2, q2] = FHN(v + 0.5 * k1 * dt, w + 0.5 * q1 * dt, t)
-    [k3, q3] = FHN(v + 0.5 * k2 * dt, w + 0.5 * q2 * dt, t)
-    [k4, q4] = FHN(v + k3 * dt, w + q3 * dt, t)
+    n = y[1]
+    k1, q1 = HH_reduced(v, n, t)
+    k2, q2 = HH_reduced(v + 0.5 * k1 * dt, n + 0.5 * q1 * dt, t)
+    k3, q3 = HH_reduced(v + 0.5 * k2 * dt, n + 0.5 * q2 * dt, t)
+    k4, q4 = HH_reduced(v + k3 * dt, n + q3 * dt, t)
     return dt * np.array([k1 + 2 * k2 + 2 * k3 + k4, q1 + 2 * q2 + 2 * q3 + q4])
 
 
@@ -149,7 +185,7 @@ delta_t = 0.001
 time_measure = np.array([0])
 # time-stepping solution
 V = np.array([v_0])
-W = np.array([w_0])
+N = np.array([n_0])
 I_out = np.array([get_I_app(0)])
 
 last_upd = 0
@@ -162,7 +198,7 @@ escape = False
 while 1:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            escape = True
+            exit()
         elif event.type == pygame.KEYDOWN:
             event_keys = pygame.key.get_pressed()
             if event.key == pygame.K_UP:
@@ -173,7 +209,7 @@ while 1:
                     I_per += 0.5
                     print(f"I_per = {I_per}")
                 else:
-                    I_const += 0.075
+                    I_const += 10
                     print(f"I_const = {I_const}")
             elif event.key == pygame.K_DOWN:
                 if event_keys[pygame.K_LSHIFT]:
@@ -183,24 +219,19 @@ while 1:
                     I_per -= 0.5
                     print(f"I_per = {I_per}")
                 else:
-                    I_const -= 0.075
+                    I_const -= 10
                     print(f"I_const = {I_const}")
             elif event.key == pygame.K_SPACE:
-                if not event_keys[pygame.K_LSHIFT]:
-                    I_impulse_flag = not I_impulse_flag
-                else:  # if event_keys[pygame.K_LSHIFT]:
-                    x[0] += a * 1.3
+                I_impulse_flag = not I_impulse_flag
             elif event.key == pygame.K_ESCAPE:
                 pygame.event.post(pygame.event.Event(pygame.QUIT))
             elif event.key == pygame.K_LEFTBRACKET:
-                SCALE_T -= 0.5
+                SCALE_T -= 0.1
                 print(f"TIME SCALE = {SCALE_T}")
             elif event.key == pygame.K_RIGHTBRACKET:
-                SCALE_T += 0.5
+                SCALE_T += 0.1
                 print(f"TIME SCALE = {SCALE_T}")
-    if escape:
-        break
-    if get_time() < delta_t * 1000:
+    if get_time() < 1000*delta_t:
         continue
 
     init_model_update_timer()
@@ -210,76 +241,65 @@ while 1:
     x = x + RK4_step(x, SCALE_T * delta_t, model_time)
 
     V = np.append(V, x[0])
-    W = np.append(W, x[1])
+    N = np.append(N, x[1])
     I_out = np.append(I_out, get_I_app(model_time))
     time_measure = np.append(time_measure, model_time)
 
     if time_from_last_update - last_upd >= 1 / 60:
         sc.fill(WHITE)
-
         last_upd = time_from_last_update
 
         # nullclines (v, w)
-        v_nullcl = []
-        w_nullcl = []
-        for v in np.linspace(MIN_X, MAX_X, 100):
-            v_nullcl.extend([real_to_pygame([v, v*(1-v)*(v-a) + get_I_app(model_time)])])
-            w_nullcl.extend([real_to_pygame([v, v/gamma])])
-        pygame.draw.aalines(sc, (255, 0, 255), False, v_nullcl)
-        pygame.draw.aalines(sc, (0, 255, 255), False, w_nullcl)
+        # v_nullcl = []
+        # n_nullcl = []
+        # for v in np.linspace(MIN_X, MAX_X, 100):
+        #     poly_n = [-g_K*(v-E_K), 0, 0, 1.1*g_Na*(m_inf(v)**3)*(v-E_Na),
+        #             get_I_app(model_time)-0.89*g_Na*(m_inf(v)**3)*(v-E_Na)-g_L*(v-E_K)]
+        #     n_sols = np.roots(poly_n)
+        #     n_real_sols = []
+        #     for n_sol in n_sols:
+        #         if np.isreal(n_sol):
+        #             print(n_sol)
+        #             v_nullcl.extend([real_to_pygame([v, n_sol])])
+        #     n_nullcl.extend([real_to_pygame([v, 1/(1+np.exp((-53-v)/15))])])
+        # print(v_nullcl)
+        # # pygame.draw.aalines(sc, (255, 0, 255), False, v_nullcl)
+        # pygame.draw.aalines(sc, (0, 255, 255), False, n_nullcl)
 
         # eq points
-        eq_points = get_equilibrium_points(model_time)
-        for eq_p in eq_points:
-            f_v = np.poly1d([-gamma**3, (a+1)*gamma**2, -a*gamma, (get_I_app(model_time) - eq_p[1])]).deriv()(eq_p[0])
-            f_w = np.poly1d([-gamma**3, (a+1)*(gamma**2), -(a*gamma + 1), get_I_app(model_time)]).deriv()(eq_p[1])
-            g_v = np.poly1d([eps, -eps*gamma*eq_p[1]]).deriv()(eq_p[0])
-            g_w = np.poly1d([-eps*gamma, eps*eq_p[0]]).deriv()(eq_p[1])
-
-            eig_val, eig_vec = np.linalg.eig([[f_v, f_w], [g_v, g_w]])
-            # print(eig_val)
-            is_stable = np.real(eig_val[0]) < 0 and np.real(eig_val[1]) < 0
-
-            pygame.draw.circle(sc, BLACK, real_to_pygame(eq_p), 6)
-            if is_stable:
-                pygame.draw.circle(sc, BLACK, real_to_pygame(eq_p), 5)
-            else:
-                pygame.draw.circle(sc, WHITE, real_to_pygame(eq_p), 5)
+        # eq_points = get_equilibrium_points(model_time)
+        # for eq_p in eq_points:
+        #     f_v = np.poly1d([-gamma ** 3, (a + 1) * gamma ** 2, -a * gamma, (get_I_app(model_time) - eq_p[1])]).deriv()(
+        #         eq_p[0])
+        #     f_w = np.poly1d([-gamma ** 3, (a + 1) * (gamma ** 2), -(a * gamma + 1), get_I_app(model_time)]).deriv()(
+        #         eq_p[1])
+        #     g_v = np.poly1d([eps, -eps * gamma * eq_p[1]]).deriv()(eq_p[0])
+        #     g_w = np.poly1d([-eps * gamma, eps * eq_p[0]]).deriv()(eq_p[1])
+        #
+        #     eig_val, eig_vec = np.linalg.eig([[f_v, f_w], [g_v, g_w]])
+        #     # print(eig_val)
+        #     is_stable = np.real(eig_val[0]) < 0 and np.real(eig_val[1]) < 0
+        #
+        #     pygame.draw.circle(sc, BLACK, real_to_pygame(eq_p), 6)
+        #     if is_stable:
+        #         pygame.draw.circle(sc, BLACK, real_to_pygame(eq_p), 5)
+        #     else:
+        #         pygame.draw.circle(sc, WHITE, real_to_pygame(eq_p), 5)
 
         # draw point
-        point = real_to_pygame(x)
+        point = real_to_pygame((x[0], x[1]))
 
         pygame.draw.circle(sc, RED, point, 5)
 
         # trajectory
-        VW_curve.pop(0)
-        VW_curve.append([point[0], point[1]])
-        # print(len(VW_curve))
-        pygame.draw.aalines(sc, BLUE, False, VW_curve[-curve_dot_cnt:])
+        VN_curve.append([point[0], point[1]])
+        pygame.draw.aalines(sc, BLUE, False, VN_curve[-curve_dot_cnt:])
 
         # net
         draw_net()
 
         pygame.display.update()
 
-
 max_time = time_measure[-1]
-
-# plot the result
-# fig = plt.figure()
-# ax = fig.add_subplot(111)
-# ax.plot(time_measure, V)
-# ax.plot(time_measure, W)
-# ax.set(xlim=[0, max_time + 1], ylim=[min(MIN_X, MIN_Y), max(MAX_X, MAX_Y)], xlabel='time')
-# plt.show()
-
-plt.plot(time_measure, V, label='V')
-plt.plot(time_measure, W, '--', label='W')
-plt.plot(time_measure, I_out, '-.', label='I_out')
-plt.grid(True)
-plt.axis()
-plt.xlabel('time')
-plt.legend(loc=1)
-plt.show()
 
 exit()

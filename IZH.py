@@ -41,7 +41,7 @@ def model_update_timer():
 
 sc = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("IZH")
-font = pygame.font.SysFont('arial', 10)
+font = pygame.font.SysFont('arial', 14)
 
 FPS = 60
 clock = pygame.time.Clock()
@@ -86,7 +86,7 @@ def draw_net():
 
 # -------------------------
 
-curr_type = 0
+curr_type = 1
 
 # Excitatory: [RS, IB, CH]
 # Inhibitory: [FS, LTS]
@@ -98,7 +98,7 @@ c = [-65., -55., -50., -65., -65., -65., -65.]
 d = [8., 4., 2., 2., 2., 0.05, 2.]
 
 
-I_app = 0.0
+I_app = 10
 v_0 = -70
 w_0 = -14
 v_thresh = 30.0
@@ -159,20 +159,19 @@ escape = False
 while 1:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            exit()
+            escape = True
         elif event.type == pygame.KEYDOWN:
+            event_keys = pygame.key.get_pressed()
             if event.key == pygame.K_UP:
+                I_app += 1
+                if event_keys[pygame.K_LSHIFT]:
+                    I_app += 5
                 print(f"I_app = {I_app}")
-                I_app += 0.4
             elif event.key == pygame.K_DOWN:
+                I_app -= 1
+                if event_keys[pygame.K_LSHIFT]:
+                    I_app -= 5
                 print(f"I_app = {I_app}")
-                I_app -= 0.4
-            elif event.key == pygame.K_SPACE:
-                print("dV")
-                x[0] += 40
-                event_keys = pygame.key.get_pressed()
-                if not event_keys[pygame.K_LSHIFT]:
-                    x[0] += 40
             elif event.key == pygame.K_ESCAPE:
                 pygame.event.post(pygame.event.Event(pygame.QUIT))
             elif event.key == pygame.K_LEFTBRACKET:
@@ -183,31 +182,32 @@ while 1:
                 print(f"TIME SCALE = {SCALE_T}")
             elif event.key == pygame.K_1:
                 change_model_type(0)
-                print("Excitatory cortical neuron model."
+                print("Excitatory cortical neuron model.\n"
                       "Regular spiking.")
             elif event.key == pygame.K_2:
                 change_model_type(1)
-                print("Excitatory cortical neuron model."
+                print("Excitatory cortical neuron model.\n"
                       "Instrinsically bursting.")
             elif event.key == pygame.K_3:
                 change_model_type(2)
-                print("Excitatory cortical neuron model."
+                print("Excitatory cortical neuron model.\n"
                       "Chattering.")
             elif event.key == pygame.K_4:
                 change_model_type(3)
-                print("Inhibitotary cortical neuron model."
+                print("Inhibitotary cortical neuron model.\n"
                       "Fast spiking.")
             elif event.key == pygame.K_5:
                 change_model_type(4)
-                print("Inhibitotary cortical neuron model."
+                print("Inhibitotary cortical neuron model.\n"
                       "Low-threshold spiking.")
             elif event.key == pygame.K_6:
                 change_model_type(5)
-                print("Thalamo-cortical neuron model.")
+                print("Thalamo-cortical neuron model.\n")
             elif event.key == pygame.K_7:
                 change_model_type(6)
-                print("Resonator neuron model.")
-
+                print("Resonator neuron model.\n")
+    if escape:
+        break
     if model_update_timer() < delta_t * 1000:
         continue
 
@@ -272,16 +272,21 @@ while 1:
 max_time = time_measure[-1]
 
 # plot the result
-fig = plt.figure()
-ax = fig.add_subplot(111)
-ax.plot(time_measure, V)
-ax.plot(time_measure, W)
-ax.set(xlim=[0, max_time + 1], ylim=[min(MIN_X, MIN_Y), max(MAX_X, MAX_Y)], xlabel='time')
+# fig = plt.figure()
+# ax = fig.add_subplot(111)
+# ax.plot(time_measure, V)
+# ax.plot(time_measure, W)
+# ax.set(xlim=[0, max_time + 1], ylim=[min(MIN_X, MIN_Y), max(MAX_X, MAX_Y)], xlabel='time')
+# plt.show()
+
+plt.plot(time_measure, V)
+# plt.plot(time_measure, W, '--', label='W')
+# plt.plot(time_measure, I_out, '-.', label='I_out')
+plt.grid(True)
+plt.axis()
+plt.xlabel('Time, ms')
+plt.ylabel('Voltage, mV')
+# plt.legend(loc=1)
 plt.show()
 
-# plt.plot(time,V)
-# plt.plot(time,W)
-# plt.grid(True)
-# plt.axis()
-# plt.legend(['voltage', 'activation variable'], loc='lower right')
-# plt.show()
+exit()

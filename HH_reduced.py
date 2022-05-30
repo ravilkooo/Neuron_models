@@ -86,11 +86,9 @@ def draw_net():
 
 v_0 = 0
 n_0 = 0.318
-m_0 = 0.053
-h_0 = 0.59
-x = np.array([v_0, n_0, m_0, h_0])
+x = np.array([v_0, n_0])
 
-TV_curve = [real_to_pygame([0, x[0]])]
+VT_curve = [real_to_pygame([0, x[0]])]
 
 
 def get_I_app(t):
@@ -117,12 +115,16 @@ def b_m(v):
     return 4 * np.exp(-v / 18)
 
 
-def a_h(v):
-    return 0.07 * np.exp(-v / 20)
+def n_inf(v):
+    return a_n(v)/(a_n(v) + b_n(v))
 
 
-def b_h(v):
-    return 1 / (np.exp((30 - v) / 10) + 1)
+def m_inf(v):
+    return a_m(v)/(a_m(v) + b_m(v))
+
+
+def tau_n(v):
+    return 1/(a_n(v) + b_n(v))
 
 
 C = 1
@@ -136,12 +138,10 @@ g_Na = 120
 g_L = 0.3
 
 
-def HH(v, n, m, h, t):
+def HH_reduced(v, n, t):
     return np.array([(get_I_app(t) - g_K * (n ** 4) * (v - E_K)
-                     - g_Na * (m ** 3) * h * (v - E_Na) - g_L * (v - E_L))/C,
-                     a_n(v)*(1-n)-b_n(v)*n,
-                     a_m(v) * (1 - m) - b_m(v) * m,
-                     a_h(v) * (1 - h) - b_h(v) * h])
+                     - g_Na * (m_inf(v) ** 3) * (0.89 - 1.1*n) * (v - E_Na) - g_L * (v - E_L))/C,
+                     a_n(v)*(1-n)-b_n(v)*n])
 
 
 # -------------------------
@@ -150,14 +150,11 @@ def HH(v, n, m, h, t):
 def RK4_step(y, dt, t):
     v = y[0]
     n = y[1]
-    m = y[2]
-    h = y[3]
-    k1, q1, w1, z1 = HH(v, n, m, h, t)
-    k2, q2, w2, z2 = HH(v + 0.5 * k1 * dt, n + 0.5 * q1 * dt, m + 0.5 * w1 * dt, h + 0.5 * z1 * dt, t)
-    k3, q3, w3, z3 = HH(v + 0.5 * k2 * dt, n + 0.5 * q2 * dt, m + 0.5 * w2 * dt, h + 0.5 * z2 * dt, t)
-    k4, q4, w4, z4 = HH(v + k3 * dt, n + q3 * dt, m + w3 * dt, h + z3 * dt, t)
-    return dt * np.array([k1 + 2 * k2 + 2 * k3 + k4, q1 + 2 * q2 + 2 * q3 + q4,
-                          w1 + 2 * w2 + 2 * w3 + w4, z1 + 2 * z2 + 2 * z3 + z4])
+    k1, q1 = HH_reduced(v, n, t)
+    k2, q2 = HH_reduced(v + 0.5 * k1 * dt, n + 0.5 * q1 * dt, t)
+    k3, q3 = HH_reduced(v + 0.5 * k2 * dt, n + 0.5 * q2 * dt, t)
+    k4, q4 = HH_reduced(v + k3 * dt, n + q3 * dt, t)
+    return dt * np.array([k1 + 2 * k2 + 2 * k3 + k4, q1 + 2 * q2 + 2 * q3 + q4])
 
 
 max_time = 20
@@ -166,8 +163,6 @@ time_measure = np.array([0])
 # time-stepping solution
 V = np.array([v_0])
 N = np.array([n_0])
-M = np.array([m_0])
-H = np.array([h_0])
 I_out = np.array([get_I_app(0)])
 
 last_upd = 0
@@ -209,8 +204,6 @@ while 1:
 
     V = np.append(V, x[0])
     N = np.append(N, x[1])
-    M = np.append(M, x[2])
-    H = np.append(H, x[3])
     I_out = np.append(I_out, get_I_app(model_time))
     time_measure = np.append(time_measure, model_time)
     measure_cnt += 1
@@ -237,8 +230,8 @@ while 1:
         pygame.draw.circle(sc, RED, point, 3)
 
         # trajectory
-        TV_curve.append([point[0], point[1]])
-        pygame.draw.aalines(sc, BLUE, False, TV_curve[:measure_cnt])
+        VT_curve.append([point[0], point[1]])
+        pygame.draw.aalines(sc, BLUE, False, VT_curve[:measure_cnt])
 
         # net
         draw_net()
@@ -258,45 +251,6 @@ plt.ylabel('Voltage, mV', labelpad=0)
 plt.legend()
 plt.grid()
 plt.show()
-
-
-plt.plot(time_measure, N, '--', label='n(t)')
-plt.plot(time_measure, M, label='m(t)')
-plt.plot(time_measure, H, '-.', label='h(t)')
-plt.xlabel('Time, ms')
-plt.ylabel('Activation variables', labelpad=0)
-plt.legend()
-plt.grid()
-plt.show()
-
-
-plt.plot(time_measure, (N**4)*g_K, '--', label='g_K')
-plt.plot(time_measure, (M**3)*H*g_Na, label='g_Na')
-plt.xlabel('Time, ms')
-plt.ylabel('Conductance, mS/cm2', labelpad=0)
-plt.legend()
-plt.grid()
-plt.show()
-
-
-plt.plot(time_measure, (N**4)*g_K*(V-E_K), '--', label='I_K')
-plt.plot(time_measure, (M**3)*H*g_Na*(V-E_Na), label='I_Na')
-# plt.plot(time_measure, (g_L*(V-E_L)), ':', label='I_L')
-plt.plot(time_measure, (N**4)*g_K*(V-E_K) + (M**3)*H*g_Na*(V-E_Na) + g_L*(V-E_L), label='I_K + I_Na + I_L')
-plt.xlabel('Time, ms')
-plt.ylabel('Current, mA', labelpad=0)
-plt.legend()
-plt.grid()
-plt.show()
-
-
-plt.plot(time_measure, [get_I_app(i) for i in time_measure])
-plt.xlabel('Time, ms')
-plt.ylabel('I_out, mA', labelpad=0)
-plt.grid()
-plt.show()
-
-
 #
 # repeat plots for [prespike_moment:]
 #
@@ -315,67 +269,5 @@ plt.legend()
 plt.grid()
 plt.show()
 
-
-plt.plot(time_measure[prespike_moment:afterspike_moment],
-         N[prespike_moment:afterspike_moment], '--', label='n(t)')
-plt.plot(time_measure[prespike_moment:afterspike_moment],
-         M[prespike_moment:afterspike_moment], label='m(t)')
-plt.plot(time_measure[prespike_moment:afterspike_moment],
-         H[prespike_moment:afterspike_moment], '-.', label='h(t)')
-plt.plot(time_measure[prespike_moment:afterspike_moment],
-         H[prespike_moment:afterspike_moment]+N[prespike_moment:afterspike_moment], ':', label='n(t)+h(t)')
-plt.xlabel('Time, ms')
-plt.ylabel('Activation variables', labelpad=0)
-plt.legend()
-plt.grid()
-plt.show()
-
-
-plt.plot(time_measure[prespike_moment:afterspike_moment],
-         ((N**4)*g_K)[prespike_moment:afterspike_moment], '--', label='g_K')
-plt.plot(time_measure[prespike_moment:afterspike_moment],
-         ((M**3)*H*g_Na)[prespike_moment:afterspike_moment], label='g_Na')
-plt.xlabel('Time, ms')
-plt.ylabel('Conductance, mS/cm2', labelpad=0)
-plt.legend()
-plt.grid()
-plt.show()
-
-
-plt.plot(time_measure[prespike_moment:afterspike_moment],
-         ((N**4)*g_K*(V-E_K))[prespike_moment:afterspike_moment], '--', label='I_K')
-plt.plot(time_measure[prespike_moment:afterspike_moment],
-         ((M**3)*H*g_Na*(V-E_Na))[prespike_moment:afterspike_moment], label='I_Na')
-# plt.plot(time_measure[prespike_moment:], (g_L*(V-E_L))[prespike_moment:], ':', label='I_L')
-plt.plot(time_measure[prespike_moment:afterspike_moment],
-         ((N**4)*g_K*(V-E_K) + (M**3)*H*g_Na*(V-E_Na) + g_L*(V-E_L))[prespike_moment:afterspike_moment],
-         label='I_K + I_Na + I_L')
-plt.xlabel('Time, ms')
-plt.ylabel('Current, mA', labelpad=0)
-plt.legend()
-plt.grid()
-plt.show()
-
-
-plt.plot(time_measure[prespike_moment:afterspike_moment],
-         [get_I_app(i) for i in time_measure[prespike_moment:afterspike_moment]])
-plt.xlabel('Time, ms')
-plt.ylabel('I_out, mA', labelpad=0)
-plt.grid()
-plt.show()
-
-
-# h = 0.89 - 1.1 n
-
-
-plt.plot(N[prespike_moment:afterspike_moment],
-         H[prespike_moment:afterspike_moment], label='h(n)')
-plt.plot(N[prespike_moment:afterspike_moment],
-         [0.89 - 1.1*i for i in N[prespike_moment:afterspike_moment]], '--', label='0.89 - 1.1n')
-plt.xlabel('n')
-plt.ylabel('h', labelpad=0)
-plt.legend()
-plt.grid()
-plt.show()
 
 exit()
