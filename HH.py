@@ -1,9 +1,5 @@
-import math
-import random
 import pygame
-import os
 import numpy as np
-from numpy.linalg import inv
 from matplotlib import pyplot as plt
 
 pygame.init()
@@ -250,9 +246,9 @@ max_time = time_measure[-1]
 # plot the result
 
 plt.plot(time_measure, V)
-plt.plot(time_measure, np.ones_like(time_measure)*E_K, '--', label='E_K')
-plt.plot(time_measure, np.ones_like(time_measure)*E_Na, ':', label='E_Na')
-plt.plot(time_measure, np.ones_like(time_measure)*E_L, '-.', label='E_L')
+plt.plot(time_measure, np.ones_like(time_measure)*E_K, label='E_K', color='red')
+plt.plot(time_measure, np.ones_like(time_measure)*E_Na, '--', label='E_Na', color='orange')
+plt.plot(time_measure, np.ones_like(time_measure)*E_L, '-.', label='E_L', color='green')
 plt.xlabel('Time, ms')
 plt.ylabel('Voltage, mV', labelpad=0)
 plt.legend()
@@ -298,62 +294,57 @@ plt.show()
 
 
 #
-# repeat plots for [prespike_moment:]
+# repeat plots for [prespike_moment:afterspike_moment]
 #
 
-plt.plot(time_measure[prespike_moment:afterspike_moment],
+fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, sharex=True)
+
+ax1.plot(time_measure[prespike_moment:afterspike_moment],
          V[prespike_moment:afterspike_moment])
-plt.plot(time_measure[prespike_moment:afterspike_moment],
-         np.ones_like(time_measure[prespike_moment:afterspike_moment])*E_K, '--', label='E_K')
-plt.plot(time_measure[prespike_moment:afterspike_moment],
-         np.ones_like(time_measure[prespike_moment:afterspike_moment])*E_Na, ':', label='E_Na')
-plt.plot(time_measure[prespike_moment:afterspike_moment],
-         np.ones_like(time_measure[prespike_moment:afterspike_moment])*E_L, '-.', label='E_L')
-plt.xlabel('Time, ms')
-plt.ylabel('Voltage, mV', labelpad=0)
-plt.legend()
-plt.grid()
-plt.show()
+ax1.plot(time_measure[prespike_moment:afterspike_moment],
+         np.ones_like(time_measure[prespike_moment:afterspike_moment])*E_K, label='E_K', color='red')
+ax1.plot(time_measure[prespike_moment:afterspike_moment],
+         np.ones_like(time_measure[prespike_moment:afterspike_moment])*E_Na, '--', label='E_Na', color='orange')
+ax1.plot(time_measure[prespike_moment:afterspike_moment],
+         np.ones_like(time_measure[prespike_moment:afterspike_moment])*E_L, '-.', label='E_L', color='green')
+ax1.set_ylabel('Voltage, mV', labelpad=20)
+ax1.legend(loc=7)
+ax1.grid()
 
-
-plt.plot(time_measure[prespike_moment:afterspike_moment],
-         N[prespike_moment:afterspike_moment], '--', label='n(t)')
-plt.plot(time_measure[prespike_moment:afterspike_moment],
-         M[prespike_moment:afterspike_moment], label='m(t)')
-plt.plot(time_measure[prespike_moment:afterspike_moment],
-         H[prespike_moment:afterspike_moment], '-.', label='h(t)')
-plt.plot(time_measure[prespike_moment:afterspike_moment],
+ax2.plot(time_measure[prespike_moment:afterspike_moment],
+         N[prespike_moment:afterspike_moment], label='n(t)', color='red')
+ax2.plot(time_measure[prespike_moment:afterspike_moment],
+         M[prespike_moment:afterspike_moment], '--', label='m(t)', color='orange')
+ax2.plot(time_measure[prespike_moment:afterspike_moment],
+         H[prespike_moment:afterspike_moment], '-.', label='h(t)', color='green')
+ax2.plot(time_measure[prespike_moment:afterspike_moment],
          H[prespike_moment:afterspike_moment]+N[prespike_moment:afterspike_moment], ':', label='n(t)+h(t)')
-plt.xlabel('Time, ms')
-plt.ylabel('Activation variables', labelpad=0)
-plt.legend()
-plt.grid()
-plt.show()
+ax2.set_ylabel('Activation\nvariables', labelpad=10)
+ax2.legend(loc=7)
+ax2.grid()
 
 
-plt.plot(time_measure[prespike_moment:afterspike_moment],
-         ((N**4)*g_K)[prespike_moment:afterspike_moment], '--', label='g_K')
-plt.plot(time_measure[prespike_moment:afterspike_moment],
-         ((M**3)*H*g_Na)[prespike_moment:afterspike_moment], label='g_Na')
-plt.xlabel('Time, ms')
-plt.ylabel('Conductance, mS/cm2', labelpad=0)
-plt.legend()
-plt.grid()
-plt.show()
+ax3.plot(time_measure[prespike_moment:afterspike_moment],
+         ((N**4)*g_K)[prespike_moment:afterspike_moment], label='g_K', color='red')
+ax3.plot(time_measure[prespike_moment:afterspike_moment],
+         ((M**3)*H*g_Na)[prespike_moment:afterspike_moment], '--', label='g_Na', color='orange')
+ax3.set_ylabel('Conductance, mS/cm2', labelpad=27)
+ax3.legend(loc=7)
+ax3.grid()
 
 
-plt.plot(time_measure[prespike_moment:afterspike_moment],
-         ((N**4)*g_K*(V-E_K))[prespike_moment:afterspike_moment], '--', label='I_K')
-plt.plot(time_measure[prespike_moment:afterspike_moment],
-         ((M**3)*H*g_Na*(V-E_Na))[prespike_moment:afterspike_moment], label='I_Na')
-# plt.plot(time_measure[prespike_moment:], (g_L*(V-E_L))[prespike_moment:], ':', label='I_L')
-plt.plot(time_measure[prespike_moment:afterspike_moment],
+ax4.plot(time_measure[prespike_moment:afterspike_moment],
+         ((N**4)*g_K*(V-E_K))[prespike_moment:afterspike_moment], label='I_K', color='red')
+ax4.plot(time_measure[prespike_moment:afterspike_moment],
+         ((M**3)*H*g_Na*(V-E_Na))[prespike_moment:afterspike_moment], '--', label='I_Na', color='orange')
+# ax4.plot(time_measure[prespike_moment:], (g_L*(V-E_L))[prespike_moment:], ':', label='I_L')
+ax4.plot(time_measure[prespike_moment:afterspike_moment],
          ((N**4)*g_K*(V-E_K) + (M**3)*H*g_Na*(V-E_Na) + g_L*(V-E_L))[prespike_moment:afterspike_moment],
-         label='I_K + I_Na + I_L')
-plt.xlabel('Time, ms')
-plt.ylabel('Current, mA', labelpad=0)
-plt.legend()
-plt.grid()
+         ':', color='green', label='I_K + I_Na + I_L')
+ax4.set_xlabel('Time, ms')
+ax4.set_ylabel('Current, mA', labelpad=0)
+ax4.legend(loc=7)
+ax4.grid()
 plt.show()
 
 

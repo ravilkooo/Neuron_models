@@ -1,7 +1,4 @@
-import math
-import random
 import pygame
-import os
 import numpy as np
 from numpy.linalg import inv
 from matplotlib import pyplot as plt
@@ -39,7 +36,6 @@ def get_time():
 sc = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("FHN")
 font = pygame.font.SysFont('arial', 10)
-
 FPS = 60
 clock = pygame.time.Clock()
 WHITE = (255, 255, 255)
@@ -61,17 +57,14 @@ def real_to_pygame(r_cord):
 
 def draw_net():
     pg_center = real_to_pygame(CENTER_XY)
-
     vert = np.append(np.arange(pg_center[0], 0, -SCALE_X * STEP_X), np.arange(pg_center[0], WIDTH, SCALE_X * STEP_X))
     horiz = np.append(np.arange(pg_center[1], 0, -SCALE_Y * STEP_Y), np.arange(pg_center[1], HEIGHT, SCALE_Y * STEP_Y))
     for v_line in vert:
         pygame.draw.line(sc, GREY, (v_line, 0), (v_line, HEIGHT))
     for h_line in horiz:
         pygame.draw.line(sc, GREY, (0, h_line), (WIDTH, h_line))
-
     pygame.draw.line(sc, BLACK, (pg_center[0], 0), (pg_center[0], HEIGHT))
     pygame.draw.line(sc, BLACK, (0, pg_center[1]), (WIDTH, pg_center[1]))
-
     for i in range(1, int((CENTER_XY[0] - MIN_X) / STEP_X)):
         draw_text(str(round(CENTER_XY[0] - i * STEP_X, 2)), (pg_center[0] - i * STEP_X * SCALE_X, pg_center[1]))
     for i in range(1, int((MAX_X - CENTER_XY[0]) / STEP_X)):
@@ -81,17 +74,14 @@ def draw_net():
     for i in range(1, int((MAX_Y - CENTER_XY[1]) / STEP_Y)):
         draw_text(str(round(CENTER_XY[1] + i * STEP_Y, 2)), (pg_center[0], pg_center[1] - i * STEP_Y * SCALE_Y))
 
-
 # -------------------------
 
 a = 0.25
-# eps = 0.005
 eps = 0.05
 I_const = 0.0
 v_0 = 0
 w_0 = 0
 gamma = 1
-# gamma = float(input())
 x = np.array([v_0, w_0])
 
 curve_dot_cnt = 2000
@@ -130,9 +120,7 @@ def get_equilibrium_points(t):
             res.extend([eq_point])
     return res
 
-
 # -------------------------
-
 
 def RK4_step(y, dt, t):
     v = y[0]
@@ -147,7 +135,6 @@ def RK4_step(y, dt, t):
 max_time = 40
 delta_t = 0.001
 time_measure = np.array([0])
-# time-stepping solution
 V = np.array([v_0])
 W = np.array([w_0])
 I_out = np.array([get_I_app(0)])
@@ -188,7 +175,7 @@ while 1:
             elif event.key == pygame.K_SPACE:
                 if not event_keys[pygame.K_LSHIFT]:
                     I_impulse_flag = not I_impulse_flag
-                else:  # if event_keys[pygame.K_LSHIFT]:
+                else:
                     x[0] += a * 1.3
             elif event.key == pygame.K_ESCAPE:
                 pygame.event.post(pygame.event.Event(pygame.QUIT))
@@ -235,43 +222,26 @@ while 1:
             f_w = np.poly1d([-gamma**3, (a+1)*(gamma**2), -(a*gamma + 1), get_I_app(model_time)]).deriv()(eq_p[1])
             g_v = np.poly1d([eps, -eps*gamma*eq_p[1]]).deriv()(eq_p[0])
             g_w = np.poly1d([-eps*gamma, eps*eq_p[0]]).deriv()(eq_p[1])
-
             eig_val, eig_vec = np.linalg.eig([[f_v, f_w], [g_v, g_w]])
-            # print(eig_val)
             is_stable = np.real(eig_val[0]) < 0 and np.real(eig_val[1]) < 0
-
             pygame.draw.circle(sc, BLACK, real_to_pygame(eq_p), 6)
             if is_stable:
                 pygame.draw.circle(sc, BLACK, real_to_pygame(eq_p), 5)
             else:
                 pygame.draw.circle(sc, WHITE, real_to_pygame(eq_p), 5)
-
         # draw point
         point = real_to_pygame(x)
-
         pygame.draw.circle(sc, RED, point, 5)
-
         # trajectory
         VW_curve.pop(0)
         VW_curve.append([point[0], point[1]])
         # print(len(VW_curve))
         pygame.draw.aalines(sc, BLUE, False, VW_curve[-curve_dot_cnt:])
-
         # net
         draw_net()
-
         pygame.display.update()
 
-
 max_time = time_measure[-1]
-
-# plot the result
-# fig = plt.figure()
-# ax = fig.add_subplot(111)
-# ax.plot(time_measure, V)
-# ax.plot(time_measure, W)
-# ax.set(xlim=[0, max_time + 1], ylim=[min(MIN_X, MIN_Y), max(MAX_X, MAX_Y)], xlabel='time')
-# plt.show()
 
 plt.plot(time_measure, V, label='V')
 plt.plot(time_measure, W, '--', label='W')

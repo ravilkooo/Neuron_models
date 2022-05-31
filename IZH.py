@@ -86,7 +86,7 @@ def draw_net():
 
 # -------------------------
 
-curr_type = 1
+curr_type = 3
 
 # Excitatory: [RS, IB, CH]
 # Inhibitory: [FS, LTS]
@@ -98,7 +98,7 @@ c = [-65., -55., -50., -65., -65., -65., -65.]
 d = [8., 4., 2., 2., 2., 0.05, 2.]
 
 
-I_app = 10
+I_app = 30
 v_0 = -70
 w_0 = -14
 v_thresh = 30.0
@@ -165,12 +165,12 @@ while 1:
             if event.key == pygame.K_UP:
                 I_app += 1
                 if event_keys[pygame.K_LSHIFT]:
-                    I_app += 5
+                    I_app += 4
                 print(f"I_app = {I_app}")
             elif event.key == pygame.K_DOWN:
                 I_app -= 1
                 if event_keys[pygame.K_LSHIFT]:
-                    I_app -= 5
+                    I_app -= 4
                 print(f"I_app = {I_app}")
             elif event.key == pygame.K_ESCAPE:
                 pygame.event.post(pygame.event.Event(pygame.QUIT))
