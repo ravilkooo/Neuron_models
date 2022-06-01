@@ -1,10 +1,6 @@
-import math
-import random
 import pygame
-import os
 import numpy as np
 from numpy.linalg import inv
-from matplotlib import pyplot as plt
 
 pygame.init()
 WIDTH = 600
@@ -83,27 +79,20 @@ def draw_net():
 
 
 # -------------------------
-
 dot_cnt = 1000
-
 a = 0.25
 eps = 0.05
 I_app = 0.0
 v_0 = 0
 w_0 = 0
 gamma = 1
-# gamma = float(input())
 x = np.zeros((dot_cnt, 2))
 rads = np.ones(dot_cnt)*3
-
 curves_dot_cnt = 10
 VW_curves = np.array([[real_to_pygame(xx) for i in range(curves_dot_cnt)] for xx in x])
 
-
 def FHN(v, w):
-    ##
     return np.array([v * (1 - v) * (v - a) - w + I_app, eps * (v - gamma * w)])
-
 
 def get_equilibrium_points():
     poly = [-gamma**3, (a+1)*(gamma**2), -(a*gamma + 1), I_app]
@@ -115,7 +104,6 @@ def get_equilibrium_points():
             res.extend([eq_point])
     return res
 
-
 def respawn_dots(i, dots_gens):
     low_b = int(i/dots_gens * dot_cnt)
     up_b = int(min((i+1)/dots_gens * dot_cnt, dot_cnt))
@@ -124,7 +112,6 @@ def respawn_dots(i, dots_gens):
     rads[low_b:up_b] = np.ones(up_b-low_b)*(i+1)*5/dots_gens + 1
     VW_curves[low_b:up_b] = np.array([[real_to_pygame(xx) for i in range(curves_dot_cnt)] for xx in x[low_b:up_b]])
 # -------------------------
-
 
 def RK4_step(y, dt):
     v = y[:, 0]
@@ -135,18 +122,14 @@ def RK4_step(y, dt):
     [k4, q4] = FHN(v + k3 * dt, w + q3 * dt)
     return dt * np.array([k1 + 2 * k2 + 2 * k3 + k4, q1 + 2 * q2 + 2 * q3 + q4]).T
 
-
 max_time = 40
 delta_t = 0.001
 time_measure = np.array([0])
-
 last_upd = 0
 time_from_last_update = 0
-
 init_model_update_timer()
 model_time = 0
 escape = False
-
 dots_lifetime = 2000
 dots_generations = 10
 for i in range(dots_generations):
@@ -180,26 +163,18 @@ while 1:
                 print(f"TIME SCALE = {SCALE_T}")
     if get_time() < delta_t * 1000:
         continue
-
     init_model_update_timer()
     time_from_last_update += SCALE_T * delta_t
     model_time = time_measure[-1] + SCALE_T * delta_t
-
     x = x + RK4_step(x, SCALE_T * delta_t)
-
     time_measure = np.append(time_measure, model_time)
-
     for i in range(dots_generations):
         if pygame.time.get_ticks()-last_respawn[i] >= dots_lifetime:
             last_respawn[i] = pygame.time.get_ticks()
             respawn_dots(i, dots_generations)
-
-
     if time_from_last_update - last_upd >= 1 / 60:
         sc.fill(WHITE)
-
         last_upd = time_from_last_update
-
         # nullclines (v, w)
         v_nullcl = []
         w_nullcl = []
@@ -208,7 +183,6 @@ while 1:
             w_nullcl.extend([real_to_pygame([v, v/gamma])])
         pygame.draw.aalines(sc, (255, 0, 255), False, v_nullcl)
         pygame.draw.aalines(sc, (0, 255, 255), False, w_nullcl)
-
         # eq points
         eq_points = get_equilibrium_points()
         for eq_p in eq_points:
@@ -216,17 +190,14 @@ while 1:
             f_w = np.poly1d([-gamma**3, (a+1)*(gamma**2), -(a*gamma + 1), I_app]).deriv()(eq_p[1])
             g_v = np.poly1d([eps, -eps * gamma * eq_p[1]]).deriv()(eq_p[0])
             g_w = np.poly1d([-eps * gamma, eps * eq_p[0]]).deriv()(eq_p[1])
-
             eig_val, eig_vec = np.linalg.eig([[f_v, f_w], [g_v, g_w]])
             # print(eig_val)
             is_stable = np.real(eig_val[0]) < 0 and np.real(eig_val[1]) < 0
-
             pygame.draw.circle(sc, BLACK, real_to_pygame(eq_p), 6)
             if is_stable:
                 pygame.draw.circle(sc, BLACK, real_to_pygame(eq_p), 5)
             else:
                 pygame.draw.circle(sc, WHITE, real_to_pygame(eq_p), 5)
-
         # draw points
         for i in range(dots_generations):
             low_b = int(i / dots_generations * dot_cnt)
@@ -236,15 +207,11 @@ while 1:
             for j in range(low_b, up_b):
                 point = real_to_pygame(x[j])
                 pygame.draw.circle(sc, (dot_col, dot_col, dot_col), point, dot_rad)
-
         # trajectory
         for i in range(dot_cnt):
             VW_curves[i][:-1] = VW_curves[i][1:]
             VW_curves[i][-1] = real_to_pygame((x[i][0], x[i][1]))
             pygame.draw.aalines(sc, BLUE, False, VW_curves[i])
-
         # net
         draw_net()
-
         pygame.display.update()
-

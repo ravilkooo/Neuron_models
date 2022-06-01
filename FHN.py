@@ -23,15 +23,12 @@ CENTER_XY = np.array([0, 0])
 SCALE_T = 5
 PYGAME_START_TIME = 0
 
-
 def init_model_update_timer():
     global PYGAME_START_TIME
     PYGAME_START_TIME = pygame.time.get_ticks()
 
-
 def get_time():
     return pygame.time.get_ticks() - PYGAME_START_TIME
-
 
 sc = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("FHN")
@@ -45,15 +42,12 @@ BLUE = (0, 0, 255)
 GREEN = (0, 255, 0)
 RED = (255, 0, 0)
 
-
 def draw_text(text, pos, col=BLACK):
     text_surface = font.render(text, True, col)
     sc.blit(text_surface, pos)
 
-
 def real_to_pygame(r_cord):
     return np.array([(r_cord[0] - MIN_X) * SCALE_X + MARGIN_X, (MAX_Y - r_cord[1]) * SCALE_Y + MARGIN_Y])
-
 
 def draw_net():
     pg_center = real_to_pygame(CENTER_XY)
@@ -75,7 +69,6 @@ def draw_net():
         draw_text(str(round(CENTER_XY[1] + i * STEP_Y, 2)), (pg_center[0], pg_center[1] - i * STEP_Y * SCALE_Y))
 
 # -------------------------
-
 a = 0.25
 eps = 0.05
 I_const = 0.0
@@ -83,16 +76,13 @@ v_0 = 0
 w_0 = 0
 gamma = 1
 x = np.array([v_0, w_0])
-
 curve_dot_cnt = 2000
 VW_curve = [real_to_pygame(x) for i in range(curve_dot_cnt)]
-
 I_impulse_flag = True
 I_per = 5
 I_last_imp = 0.0
 I_incr = True
 I_impulse_val = 0.15
-
 
 def get_I_app(t):
     global I_last_imp
@@ -105,10 +95,8 @@ def get_I_app(t):
     else:
         return I_const
 
-
 def FHN(v, w, t):
     return np.array([v * (1 - v) * (v - a) - w + get_I_app(t), eps * (v - gamma * w)])
-
 
 def get_equilibrium_points(t):
     poly = [-gamma**3, (a+1)*(gamma**2), -(a*gamma + 1), get_I_app(t)]
@@ -119,7 +107,6 @@ def get_equilibrium_points(t):
             eq_point = (eq_w*gamma, eq_w)
             res.extend([eq_point])
     return res
-
 # -------------------------
 
 def RK4_step(y, dt, t):
@@ -131,21 +118,17 @@ def RK4_step(y, dt, t):
     [k4, q4] = FHN(v + k3 * dt, w + q3 * dt, t)
     return dt * np.array([k1 + 2 * k2 + 2 * k3 + k4, q1 + 2 * q2 + 2 * q3 + q4])
 
-
 max_time = 40
 delta_t = 0.001
 time_measure = np.array([0])
 V = np.array([v_0])
 W = np.array([w_0])
 I_out = np.array([get_I_app(0)])
-
 last_upd = 0
 time_from_last_update = 0
-
 init_model_update_timer()
 model_time = 0
 escape = False
-
 while 1:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -189,23 +172,17 @@ while 1:
         break
     if get_time() < delta_t * 1000:
         continue
-
     init_model_update_timer()
     time_from_last_update += SCALE_T * delta_t
     model_time = time_measure[-1] + SCALE_T * delta_t
-
     x = x + RK4_step(x, SCALE_T * delta_t, model_time)
-
     V = np.append(V, x[0])
     W = np.append(W, x[1])
     I_out = np.append(I_out, get_I_app(model_time))
     time_measure = np.append(time_measure, model_time)
-
     if time_from_last_update - last_upd >= 1 / 60:
         sc.fill(WHITE)
-
         last_upd = time_from_last_update
-
         # nullclines (v, w)
         v_nullcl = []
         w_nullcl = []
@@ -214,7 +191,6 @@ while 1:
             w_nullcl.extend([real_to_pygame([v, v/gamma])])
         pygame.draw.aalines(sc, (255, 0, 255), False, v_nullcl)
         pygame.draw.aalines(sc, (0, 255, 255), False, w_nullcl)
-
         # eq points
         eq_points = get_equilibrium_points(model_time)
         for eq_p in eq_points:
@@ -240,9 +216,7 @@ while 1:
         # net
         draw_net()
         pygame.display.update()
-
 max_time = time_measure[-1]
-
 plt.plot(time_measure, V, label='V')
 plt.plot(time_measure, W, '--', label='W')
 plt.plot(time_measure, I_out, '-.', label='I_out')
@@ -251,5 +225,4 @@ plt.axis()
 plt.xlabel('time')
 plt.legend(loc=1)
 plt.show()
-
 exit()
